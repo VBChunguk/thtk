@@ -39,6 +39,7 @@
 
 extern const thdat_module_t archive_th02;
 extern const thdat_module_t archive_th06;
+extern const thdat_module_t archive_sh02;
 extern const thdat_module_t archive_th08;
 extern const thdat_module_t archive_th95;
 extern const thdat_module_t archive_th105;
@@ -58,6 +59,8 @@ thdat_version_to_module(
     case 6:
     case 7:
         return &archive_th06;
+    case -2:
+        return &archive_sh02;
     case 8:
     case 9:
         return &archive_th08;

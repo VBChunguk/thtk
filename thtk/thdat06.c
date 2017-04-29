@@ -209,7 +209,7 @@ th06_read(
     int ret = th_unlzss(zdata_stream, output, entry->size, error);
 
     thtk_io_close(zdata_stream);
-    
+
     return ret;
 }
 
@@ -220,7 +220,7 @@ th06_create(
 {
     /* 13 is the largest size the header can have, so some bytes might be
      * wasted. */
-    thdat->offset = thdat->version == 6 ? 13 : 16;
+    thdat->offset = (thdat->version == 6 || thdat->version == -2) ? 13 : 16;
     if (thtk_io_seek(thdat->stream, thdat->offset, SEEK_SET, error) == -1)
         return 0;
     return 1;
@@ -248,7 +248,7 @@ th06_write(
     if (!zdata)
         return -1;
 
-    if (thdat->version == 6) {
+    if (thdat->version == 6 || thdat->version == -2) {
         entry->extra = 0;
         for (ssize_t i = 0; i < entry->zsize; ++i)
             entry->extra += zdata[i];
@@ -277,7 +277,8 @@ th06_close(
     thdat_t* thdat,
     thtk_error_t** error)
 {
-    const char* magic = thdat->version == 6 ? "PBG3" : "PBG4";
+    int eosd_compatible = thdat->version == 6 || thdat->version == -2;
+    const char* magic = eosd_compatible ? "PBG3" : "PBG4";
     unsigned int i;
     uint32_t header[3];
     const uint32_t zero = 0;
@@ -285,7 +286,7 @@ th06_close(
     ssize_t buffer_size;
     thtk_io_t* buffer = NULL;
 
-    if (thdat->version == 6) {
+    if (eosd_compatible) {
         bitstream_init(&b, thdat->stream);
     } else {
         buffer = thtk_io_open_growing_memory(error);
@@ -294,7 +295,7 @@ th06_close(
     for (i = 0; i < thdat->entry_count; ++i) {
         thdat_entry_t* entry = &thdat->entries[i];
 
-        if (thdat->version == 6) {
+        if (eosd_compatible) {
             /* These values are unknown, but it seems they can be ignored. */
             uint32_t unknown1 = 0; /* The same for all entries in an archive. */
             uint32_t unknown2 = 0; /* Starts at a high value.
@@ -318,7 +319,7 @@ th06_close(
         }
     }
 
-    if (thdat->version == 6) {
+    if (eosd_compatible) {
         bitstream_finish(&b);
     } else {
         if (thtk_io_write(buffer, &zero, sizeof(uint32_t), error) != sizeof(uint32_t))
@@ -339,7 +340,7 @@ th06_close(
     if (thtk_io_write(thdat->stream, magic, 4, error) == -1)
         return 0;
 
-    if (thdat->version == 6) {
+    if (eosd_compatible) {
         bitstream_init(&b, thdat->stream);
         th06_write_uint32(&b, thdat->entry_count);
         th06_write_uint32(&b, thdat->offset);
@@ -358,6 +359,15 @@ th06_close(
 
 const thdat_module_t archive_th06 = {
     THDAT_BASENAME,
+    th06_open,
+    th06_create,
+    th06_close,
+    th06_read,
+    th06_write
+};
+
+const thdat_module_t archive_sh02 = {
+    THDAT_UPPERCASE,
     th06_open,
     th06_create,
     th06_close,
